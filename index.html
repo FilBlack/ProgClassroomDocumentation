@@ -19,17 +19,31 @@
 
     <h1 class="page-title">Home</h1>
 
-    
-
-
 
     
 
 
-    <h3> </h3>
+
+    
 
 
+    <h3> Some explainers at the start: </h3>
 
+    This project is a mini version of google classroom.
+    It uses google authentication with Passport to validate students and teachers.
+    Once the user has been serialized through Passport, we use his information on the server whenever he makes a request. 
+    All the databases are MySQL with sqlite used for testing. Every object such as a student, quiz, teacher and classroom has its own table.
+    Some objects that have a relation between each other have a separate table for the connection between them, for example studentQuiz to remember the students answer and score for a specific quiz. 
+    I am using an express server, where each endpoint is matched with ONE corresponding function on the frontend. 
+    Most pages just fetch all the necessary data from the server and display it once the component page has been mounted, some use a bit of $state() booleans to maybe change if the answer is disabled.
+
+    The pages are located in src/routes and the components in src/lib
+    The pages are divided into teacher pages and student pages. 
+    Each page has its own folder with one .svelte file.
+    The only component being used in different pages is the Header.svelte
+    The external libraries used are flatpick for the teacher to select a closing date and codeMirror for a dynamic code editor to be displayed to the student. 
+
+    Every function does exactly what its name says. 
 
 
 

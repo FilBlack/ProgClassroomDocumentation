@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>JSDoc: Source: models.js</title>
+
+    <script src="scripts/prettify/prettify.js"> </script>
+    <script src="scripts/prettify/lang-css.js"> </script>
+    <!--[if lt IE 9]>
+      <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <link type="text/css" rel="stylesheet" href="styles/prettify-tomorrow.css">
+    <link type="text/css" rel="stylesheet" href="styles/jsdoc-default.css">
+</head>
+
+<body>
+
+<div id="main">
+
+    <h1 class="page-title">Source: models.js</h1>
+
+    
+
+
+
+    
+    <section>
+        <article>
+            <pre class="prettyprint source linenums"><code>import { Sequelize, DataTypes, Model, Op } from 'sequelize';
+import mysql from 'mysql2/promise';
+const connection = await mysql.createConnection({
+    host: process.env.DATABASE_ENDPOINT,
+    port: Number(process.env.DATABASE_PORT),
+    user: process.env.DATABASE_USERNAME,
+    password: process.env.DATABASE_PASSWORD
+});
+/** Create the database if it doesn't exist */
+await connection.query(`CREATE DATABASE IF NOT EXISTS \`${process.env.DATABASE_NAME}\`;`);
+await connection.end();
+let sequelize;
+if ((process.env.DEV === "true")) {
+    console.log("Using sqlite");
+    sequelize = new Sequelize({
+        dialect: 'sqlite',
+        storage: './database.sqlite', // Path to SQLite database file
+        logging: false,
+    });
+}
+else {
+    console.log("Using mysql");
+    sequelize = new Sequelize(process.env.DATABASE_NAME, process.env.DATABASE_USERNAME, process.env.DATABASE_PASSWORD, {
+        host: process.env.DATABASE_ENDPOINT,
+        port: Number(process.env.DATABASE_PORT),
+        dialect: 'mysql'
+    });
+}
+/** Define User model with proper types */
+class ProgUser extends Model {
+}
+ProgUser.init({
+    id: {
+        type: DataTypes.INTEGER,
+        autoIncrement: true,
+        primaryKey: true,
+    },
+    googleId: {
+        type: DataTypes.STRING,
+        unique: true,
+        allowNull: false,
+    },
+    name: {
+        type: DataTypes.STRING,
+        allowNull: false,
+    },
+    email: {
+        type: DataTypes.STRING,
+        allowNull: false,
+        unique: true,
+    },
+    profilePicture: {
+        type: DataTypes.STRING,
+        allowNull: true,
+    },
+    position: {
+        type: DataTypes.STRING,
+        allowNull: false,
+    },
+    isPending: {
+        type: DataTypes.BOOLEAN,
+        allowNull: false,
+    }
+}, {
+    sequelize,
+    modelName: 'User',
+});
+/** Define Classroom model */
+class Classroom extends Model {
+}
+Classroom.init({
+    id: {
+        type: DataTypes.INTEGER,
+        autoIncrement: true,
+        primaryKey: true,
+    },
+    name: {
+        type: DataTypes.STRING,
+        allowNull: false,
+    },
+    teacher_id: {
+        type: DataTypes.STRING,
+        allowNull: false,
+        references: {
+            model: ProgUser,
+            key: 'googleId',
+        },
+        onDelete: 'CASCADE'
+    },
+}, {
+    sequelize,
+    modelName: 'Classroom',
+});
+/** Define Quiz model */
+class Quiz extends Model {
+}
+Quiz.init({
+    id: {
+        type: DataTypes.INTEGER,
+        autoIncrement: true,
+        primaryKey: true,
+    },
+    f_classroom_id: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        references: {
+            model: Classroom,
+            key: 'id',
+        },
+    },
+    name: {
+        type: DataTypes.STRING,
+        allowNull: false
+    },
+    question: {
+        type: DataTypes.STRING,
+        allowNull: false
+    },
+    max_points: {
+        type: DataTypes.INTEGER,
+        allowNull: false
+    },
+    open: {
+        type: DataTypes.BOOLEAN,
+        allowNull: false,
+    },
+    closeAt: {
+        type: DataTypes.STRING,
+        allowNull: true, //When null that means open forever
+    },
+    type: {
+        type: DataTypes.ENUM('plaintext', 'code'),
+        allowNull: false,
+    },
+}, {
+    sequelize,
+    modelName: 'Quiz',
+});
+/** Define QuizStudent model */
+class QuizStudent extends Model {
+}
+QuizStudent.init({
+    id: {
+        type: DataTypes.INTEGER,
+        autoIncrement: true,
+        primaryKey: true,
+    },
+    f_student_email: {
+        type: DataTypes.STRING,
+        allowNull: false,
+        references: {
+            model: ProgUser,
+            key: 'email',
+        },
+        onDelete: 'CASCADE'
+    },
+    f_quiz_id: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        references: {
+            model: Quiz,
+            key: 'id',
+        },
+    },
+    answer: {
+        type: DataTypes.STRING,
+        allowNull: true,
+    },
+    answered: {
+        type: DataTypes.BOOLEAN,
+        defaultValue: false
+    },
+    comment: {
+        type: DataTypes.STRING,
+        allowNull: true
+    },
+    graded: {
+        type: DataTypes.BOOLEAN,
+        defaultValue: false
+    },
+    max_points: {
+        type: DataTypes.INTEGER,
+        allowNull: false
+    },
+    points: {
+        type: DataTypes.INTEGER,
+        allowNull: true,
+    },
+}, {
+    sequelize,
+    modelName: 'QuizStudent',
+});
+/** Define ClassroomStudents model */
+class ClassroomStudents extends Model {
+}
+ClassroomStudents.init({
+    id: {
+        type: DataTypes.INTEGER,
+        autoIncrement: true,
+        primaryKey: true,
+    },
+    f_classroom_id: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        references: {
+            model: Classroom,
+            key: 'id',
+        },
+    },
+    f_student_email: {
+        type: DataTypes.STRING,
+        allowNull: false,
+        references: {
+            model: ProgUser,
+            key: 'email',
+        },
+        onDelete: 'CASCADE'
+    },
+}, {
+    sequelize,
+    modelName: 'ClassroomStudents',
+});
+/** Sync models with database */
+(async () => {
+    try {
+        /** Only run PRAGMA commands if we're using SQLite. */
+        if (sequelize.getDialect() === 'sqlite') {
+            await sequelize.query('PRAGMA foreign_keys = OFF');
+        }
+        await sequelize.sync({ alter: true });
+        if (sequelize.getDialect() === 'sqlite') {
+            await sequelize.query('PRAGMA foreign_keys = ON');
+        }
+        console.log('Database &amp; tables created!');
+    }
+    catch (error) {
+        console.error('Error syncing database:', error);
+    }
+})();
+export { sequelize, Op, ProgUser, Classroom, Quiz, QuizStudent, ClassroomStudents };
+//# sourceMappingURL=models.js.map</code></pre>
+        </article>
+    </section>
+
+
+
+
+</div>
+
+<nav>
+    <h2><a href="index.html">Home</a></h2><h3>Classes</h3><ul><li><a href="Classroom.html">Classroom</a></li><li><a href="ClassroomStudents.html">ClassroomStudents</a></li><li><a href="ProgUser.html">ProgUser</a></li><li><a href="Quiz.html">Quiz</a></li><li><a href="QuizStudent.html">QuizStudent</a></li></ul><h3>Global</h3><ul><li><a href="global.html#addClassroom">addClassroom</a></li><li><a href="global.html#addQuizToClassroom">addQuizToClassroom</a></li><li><a href="global.html#addStudentsToClassroom">addStudentsToClassroom</a></li><li><a href="global.html#app">app</a></li><li><a href="global.html#getClassroomsByStudent">getClassroomsByStudent</a></li><li><a href="global.html#getClassroomsByTeacher">getClassroomsByTeacher</a></li><li><a href="global.html#getQuizById">getQuizById</a></li><li><a href="global.html#getQuizStudentConnection">getQuizStudentConnection</a></li><li><a href="global.html#getQuizStudentConnectionsByQuizIds">getQuizStudentConnectionsByQuizIds</a></li><li><a href="global.html#getQuizStudentConnectionsByStudentEmails">getQuizStudentConnectionsByStudentEmails</a></li><li><a href="global.html#getQuizesByClassroom">getQuizesByClassroom</a></li><li><a href="global.html#getQuizzesByStudentAndClassroom">getQuizzesByStudentAndClassroom</a></li><li><a href="global.html#getStudentsByClassroom">getStudentsByClassroom</a></li><li><a href="global.html#googleAuthentication">googleAuthentication</a></li><li><a href="global.html#googleAuthenticationCallback">googleAuthenticationCallback</a></li><li><a href="global.html#port">port</a></li><li><a href="global.html#redisClient">redisClient</a></li><li><a href="global.html#sessionSecret">sessionSecret</a></li><li><a href="global.html#startSession">startSession</a></li><li><a href="global.html#submitQuizAnswer">submitQuizAnswer</a></li><li><a href="global.html#submitQuizComment">submitQuizComment</a></li><li><a href="global.html#unsubmitQuizAnswer">unsubmitQuizAnswer</a></li><li><a href="global.html#unsubmitQuizComment">unsubmitQuizComment</a></li></ul>
+</nav>
+
+<br class="clear">
+
+<footer>
+    Documentation generated by <a href="https://github.com/jsdoc/jsdoc">JSDoc 4.0.4</a> on Tue Mar 11 2025 16:48:48 GMT+0100 (Central European Standard Time)
+</footer>
+
+<script> prettyPrint(); </script>
+<script src="scripts/linenumber.js"> </script>
+</body>
+</html>
